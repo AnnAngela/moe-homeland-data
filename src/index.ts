@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import { Octokit } from '@octokit/core';
 import axios from 'axios';
@@ -27,7 +28,7 @@ axiosRetry(axios, {
 	const files: { path: string; content: string; sha: string }[] = [];
 
 	try {
-		const { data: { object: { sha } } } = await octokit.request('GET /repos/{owner}/{repo}/git/ref/heads/main', {
+		const { data: { object: { sha } } } = await octokit.request('GET /repos/{owner}/{repo}/git/ref/heads/dev', {
 			owner,
 			repo,
 		});
@@ -38,8 +39,8 @@ axiosRetry(axios, {
 			const { data: { sha } } = await octokit.request('POST /repos/{owner}/{repo}/git/blobs', {
 				owner,
 				repo,
-				content,
-				encoding: 'utf-8' as const,
+				content: Buffer.from(content).toString('base64'),
+				encoding: 'base64' as const,
 			});
 			files.push({
 				path,
@@ -68,7 +69,7 @@ axiosRetry(axios, {
 			parents: [sha],
 		});
 	
-		await octokit.request('PATCH /repos/{owner}/{repo}/git/refs/heads/main', {
+		await octokit.request('PATCH /repos/{owner}/{repo}/git/refs/heads/dev', {
 			owner,
 			repo,
 			sha: commit.sha,
