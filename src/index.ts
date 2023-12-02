@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import process from 'node:process';
-import { Octokit } from '@octokit/core';
+import { Octokit } from '@octokit/rest';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 
@@ -28,15 +28,16 @@ axiosRetry(axios, {
 	const files: { path: string; content: string; sha: string }[] = [];
 
 	try {
-		const { data: { object: { sha } } } = await octokit.request('GET /repos/{owner}/{repo}/git/ref/heads/dev', {
+		const { data: { object: { sha } } } = await octokit.git.getRef({
 			owner,
 			repo,
+			ref: 'heads/dev',
 		});
 		
 		await Promise.all(partlist.map(async (part) => {
 			const path: string = `data/${part}.json`;
 			const content: string = JSON.stringify(await getData(part), null, '  ');
-			const { data: { sha } } = await octokit.request('POST /repos/{owner}/{repo}/git/blobs', {
+			const { data: { sha } } = await octokit.git.createBlob({
 				owner,
 				repo,
 				content: Buffer.from(content).toString('base64'),
@@ -49,7 +50,7 @@ axiosRetry(axios, {
 			});
 		}));
 
-		const { data: tree } = await octokit.request('POST /repos/{owner}/{repo}/git/trees', {
+		const { data: tree } = await octokit.git.createTree({
 			owner,
 			repo,
 			base_tree: sha,
@@ -61,7 +62,7 @@ axiosRetry(axios, {
 			})),
 		});
 
-		const { data: commit } = await octokit.request('POST /repos/{owner}/{repo}/git/commits', {
+		const { data: commit } = await octokit.git.createCommit({
 			owner,
 			repo,
 			message: `auto: update data at ${new Date().toISOString()}`,
@@ -69,9 +70,10 @@ axiosRetry(axios, {
 			parents: [sha],
 		});
 	
-		await octokit.request('PATCH /repos/{owner}/{repo}/git/refs/heads/dev', {
+		await octokit.git.updateRef({
 			owner,
 			repo,
+			ref: 'heads/dev',
 			sha: commit.sha,
 		});
 	
